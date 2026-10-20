@@ -1,19 +1,29 @@
-using System;
-using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using Microsoft.Win32;
 
 namespace Atletika
 {
     public partial class MainWindow : Window
     {
+        public ObservableCollection<Versenyzo> Versenyzok { get; } = new();
+        private ICollectionView nezet;
+
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = this;
+
+            nezet = CollectionViewSource.GetDefaultView(Versenyzok);
+            nezet.Filter = RekordSzures;
+
+            LetszamFrissit();
         }
 
         private void Eletkor_Valtozott(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -21,6 +31,14 @@ namespace Atletika
             if (txtEletkor == null) return;
 
             txtEletkor.Text = (int)e.NewValue + " év";
+        }
+
+        private void Szuro_Valtozott(object sender, SelectionChangedEventArgs e)
+        {
+            if (txtLetszam == null) return;
+
+            nezet.Refresh();
+            LetszamFrissit();
         }
 
         private void Regisztral_Click(object sender, RoutedEventArgs e)
@@ -34,7 +52,7 @@ namespace Atletika
 
             if (nev.Contains(";") || nev.Contains("|"))
             {
-                ShowWarning("A névben pontosvessző és függőleges vonal chosenGender használható.");
+                ShowWarning("A névben pontosvessző és függőleges vonal nem használható.");
                 return;
             }
 
@@ -46,7 +64,7 @@ namespace Atletika
 
             if (rbFerfi.IsChecked != true && rbNo.IsChecked != true)
             {
-                ShowWarning("Adja meg a versenyző chosenGenderét.");
+                ShowWarning("Adja meg a versenyző nemét.");
                 return;
             }
 
@@ -90,19 +108,9 @@ namespace Atletika
             string raceType = ((ComboBoxItem)cmbVersenyszam.SelectedItem).Content.ToString()!;
             int chosenAge = (int)sldEletkor.Value;
 
-            string[] rawData =
-            {
-                raceNumber.ToString(),
-                nev,
-                raceType,
-                rbFerfi.IsChecked == true ? "F" : "N",
-                chosenAge.ToString(),
-                chkOlimpiai.IsChecked == true ? "1" : "0",
-                chkVB.IsChecked == true ? "1" : "0",
-                chkEB.IsChecked == true ? "1" : "0"
-            };
+            Versenyzo newRacer = new(raceNumber, nev, raceType, rbFerfi.IsChecked == true ? "F" : "N", chosenAge, chkOlimpiai.IsChecked == true, chkVB.IsChecked == true, chkEB.IsChecked == true);
 
-            lstVersenyzok.Items.Add(string.Join(" | ", rawData));
+            Versenyzok.Add(newRacer);
             LetszamFrissit();
 
             txtNev.Clear();
@@ -114,23 +122,53 @@ namespace Atletika
         private void Mentes_Click(object sender, RoutedEventArgs e)
         {
             SaveFileDialog dialog = new();
-            dialog.FileName = "atletika.csv";
-            dialog.Filter = "CSV-fájl (*.csv)|*.csv";
+            dialog.FileName = "atletika";
+            dialog.Filter = "CSV-fájl (*.csv)|*.csv|Szövegfájl (*.txt)|*.txt";
+            dialog.FilterIndex = 1;
+
+            if (dialog.ShowDialog() != true) return;
+
+            string fileName = dialog.FileName;
+            string extension = Path.GetExtension(fileName).ToLower();
+            string expectedExtension = dialog.FilterIndex == 1 ? ".csv" : ".txt";
+
+            if (extension == "")
+            {
+                fileName += expectedExtension;
+            }
+            else if (extension != expectedExtension)
+            {
+                ShowWarning("A kiválasztott fájltípus és a fájlnév kiterjesztése nem egyezik.");
+                return;
+            }
 
             try
             {
-                StreamWriter sw = new StreamWriter(dialog.FileName, false, Encoding.UTF8);
-                
-                sw.WriteLine("Rajtszam;Nev;Versenyszam;Nem;Eletkor;OlimpiaiCsucs;VBCsucs;EBCsucs");
-                
-                foreach (string sor in lstVersenyzok.Items.Cast<string>())
+                StreamWriter sw = new StreamWriter(fileName, false, Encoding.UTF8);
+
+                if (dialog.FilterIndex == 1)
                 {
-                    string[] rawData = sor.Split('|').Select(m => m.Trim()).ToArray();
-                    sw.WriteLine(string.Join(";", rawData));
+                    sw.WriteLine("Rajtszam;Nev;Versenyszam;Nem;Eletkor;OR;VR;ER");
+
+                    foreach (Versenyzo v in Versenyzok)
+                    {
+                        sw.WriteLine(string.Join(";", v.Rajtszam, v.Nev, v.Versenyszam, v.Nem, v.Eletkor, v.OR ? 1 : 0, v.VR ? 1 : 0, v.ER ? 1 : 0));
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < Versenyzok.Count; i++)
+                    {
+                        Versenyzo v = Versenyzok[i];
+
+                        if (i > 0) sw.WriteLine();
+
+                        sw.WriteLine(v.Nev);
+                        sw.WriteLine("A " + v.Eletkor + " éves " + (v.Nem == "F" ? "férfi" : "női") + " versenyző a(z) " + v.Versenyszam + " versenyszámban indul, rajtszáma " + v.Rajtszam + ". " + "Olimpiai csúccsal " + Rendelkezik(v.OR) + ", világcsúccsal " + Rendelkezik(v.VR) + ", Európa-csúccsal " + Rendelkezik(v.ER) + ".");
+                    }
                 }
 
                 sw.Close();
-                
             }
             catch (Exception ex)
             {
@@ -143,31 +181,33 @@ namespace Atletika
             OpenFileDialog dialog = new();
             dialog.Filter = "CSV-fájl (*.csv)|*.csv";
 
-            List<string> newData = new();
+            if (dialog.ShowDialog() != true) return;
+
+            List<Versenyzo> newData = new();
             List<int> newRaceNumbers = new();
 
             try
             {
                 StreamReader sr = new (dialog.FileName, Encoding.UTF8);
-                
+
                 sr.ReadLine();
                 while (!sr.EndOfStream)
                 {
                     string sor = sr.ReadLine()!;
 
                     if (string.IsNullOrEmpty(sor.Trim())) continue;
-                    
-                    string[] rawData = sor.Split(';');
-                    int raceNumber = int.Parse(rawData[0].Trim());
 
-                    if (newRaceNumbers.Contains(raceNumber))
+                    Versenyzo racer = new(sor);
+
+                    if (newRaceNumbers.Contains(racer.Rajtszam))
                     {
-                        MessageBox.Show("A fájlban ismétlődő rajtszám található: " + raceNumber +"\nA betöltés megszakadt, a korábbi lista megmaradt.", "Hiba", MessageBoxButton.OK, MessageBoxImage.Error);
+                        sr.Close();
+                        MessageBox.Show("A fájlban ismétlődő rajtszám található: " + racer.Rajtszam +"\nA betöltés megszakadt, a korábbi lista megmaradt.", "Hiba", MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
 
-                    newRaceNumbers.Add(raceNumber);
-                    newData.Add(string.Join(" | ", rawData.Select(m => m.Trim())));
+                    newRaceNumbers.Add(racer.Rajtszam);
+                    newData.Add(racer);
                 }
 
                 sr.Close();
@@ -178,26 +218,44 @@ namespace Atletika
                 return;
             }
 
-            lstVersenyzok.Items.Clear();
+            Versenyzok.Clear();
 
-            foreach (string sor in newData) lstVersenyzok.Items.Add(sor);
-            
+            foreach (Versenyzo v in newData) Versenyzok.Add(v);
+
             LetszamFrissit();
+        }
+
+        private bool RekordSzures(object item)
+        {
+            Versenyzo v = (Versenyzo)item;
+
+            return cmbRekordSzuro.SelectedIndex switch
+            {
+                1 => v.OR,
+                2 => v.VR,
+                3 => v.ER,
+                _ => true
+            };
+        }
+
+        private string Rendelkezik(bool van)
+        {
+            return van ? "rendelkezik" : "nem rendelkezik";
         }
 
         private void ShowWarning(string uzenet)
         {
-            MessageBox.Show(uzenet, "ShowWarningés", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(uzenet, "Figyelmeztetés", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void LetszamFrissit()
         {
-            txtLetszam.Text = "Regisztrált versenyzők: " + lstVersenyzok.Items.Count;
+            txtLetszam.Text = "Látható: " + nezet.Cast<Versenyzo>().Count() + " / Összesen: " + Versenyzok.Count;
         }
 
         private List<int> GetUsedRaceNumbers()
         {
-            return lstVersenyzok.Items.Cast<string>().Select(sor => int.Parse(sor.Split('|')[0].Trim())).ToList();
+            return Versenyzok.Select(v => v.Rajtszam).ToList();
         }
     }
 }
