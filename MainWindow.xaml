@@ -5,8 +5,86 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Atletika"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Atlétikai verseny - Rajtszámok"
+        Width="1240" Height="820"
+        Background="#F3F6FA"
+        FontFamily="Segoe UI"
+        FontSize="14">
 
+    <Grid Margin="20" RowDefinitions="Auto, *, Auto" ColumnDefinitions="390, *">
+
+        <!-- Fejléc -->
+        <StackPanel Grid.ColumnSpan="2" Margin="0, 0, 0, 16">
+            <TextBlock Text="Atlétikai verseny" FontSize="28" FontWeight="Bold" Foreground="#19324D"/>
+            <TextBlock Text="Versenyzők regisztrációja és rajtszámok kiosztása" Foreground="#52657A"/>
+        </StackPanel>
+
+        <!-- Bal panel: Új versenyző -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#D4DDE7" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0, 0, 20, 0">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Új versenyző" FontSize="16" FontWeight="Bold" Foreground="#19324D" Margin="0,0,0,12"/>
+                <Button x:Name="btnRegisztral" Click="Regisztral_Click" DockPanel.Dock="Bottom" Content="REGISZTRÁL" Height="36" Background="#DDEBFA" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0, 12, 0, 0"/>
+                <StackPanel>
+                    <TextBlock Text="Versenyző neve:" Margin="0, 0, 0, 4"/>
+                    <TextBox x:Name="txtNev" Height="32" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Padding="6,0" Margin="0, 0, 0, 12"/>
+
+                    <TextBlock Text="Versenyszám:" Margin="0, 0, 0, 4"/>
+                    <ComboBox x:Name="cmbVersenyszam" Height="32" IsEditable="False" SelectedIndex="-1" VerticalContentAlignment="Center" Margin="0, 0, 0, 12">
+                        <ComboBoxItem Content="100 m"/>
+                        <ComboBoxItem Content="200 m"/>
+                        <ComboBoxItem Content="400 m"/>
+                        <ComboBoxItem Content="800 m"/>
+                        <ComboBoxItem Content="1500 m"/>
+                        <ComboBoxItem Content="Távolugrás"/>
+                        <ComboBoxItem Content="Magasugrás"/>
+                        <ComboBoxItem Content="Súlylökés"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Nem:" Margin="0, 0, 0, 4"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <RadioButton x:Name="rbFerfi" Content="Férfi" GroupName="Nem" VerticalContentAlignment="Center" Margin="0, 0, 16, 0"/>
+                        <RadioButton x:Name="rbNo" Content="Nő" GroupName="Nem" VerticalContentAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Életkor:" Margin="0, 0, 0, 4"/>
+                    <Grid Margin="0, 0, 0, 4" ColumnDefinitions="*, Auto">
+                        <Slider x:Name="sldEletkor" ValueChanged="Eletkor_Valtozott" Minimum="18" Maximum="90" Value="18" SmallChange="1" TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="BottomRight" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="txtEletkor" Grid.Column="1" Text="18 év" FontWeight="Bold" Foreground="#19324D" VerticalAlignment="Center" Margin="12, 0, 0, 0"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12" ColumnDefinitions="*, Auto">
+                        <TextBlock Grid.Column="0" Text="18" Foreground="#52657A" FontSize="12" HorizontalAlignment="Left"/>
+                        <TextBlock Grid.Column="1" Text="90" Foreground="#52657A" FontSize="12" HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <TextBlock Text="Korábbi eredmények" FontWeight="Bold" Foreground="#19324D" Margin="0, 0, 0, 4"/>
+                    <CheckBox x:Name="chkOlimpiai" Content="Olimpiai csúcs" IsChecked="False" Margin="0, 0, 0, 4"/>
+                    <CheckBox x:Name="chkVB" Content="Világbajnoki csúcs" IsChecked="False" Margin="0, 0, 0, 4"/>
+                    <CheckBox x:Name="chkEB" Content="Európa-bajnoki csúcs" IsChecked="False" Margin="0, 0, 0, 12"/>
+                    <TextBlock Text="Igényelt rajtszám:" Margin="0, 0, 0,4"/>
+                    <TextBox x:Name="txtRajtszam" Height="32" VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Padding="6, 0" Margin="0, 0, 0, 4"/>
+                    <TextBlock Text="Üres mező: automatikus kiosztás." Foreground="#52657A" FontSize="12"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="1" Background="White" BorderBrush="#D4DDE7" BorderThickness="1" CornerRadius="8" Padding="16">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Regisztrált versenyzők" FontSize="16" FontWeight="Bold" Foreground="#19324D" Margin="0, 0, 0, 4"/>
+                <TextBlock DockPanel.Dock="Top" Text="Rajtszám | Név | Versenyszám | Nem | Kor | O | VB | EB" Foreground="#52657A" FontSize="12" Margin="0, 0, 0, 8"/>
+                <TextBlock DockPanel.Dock="Bottom" Text="O = olimpiai, VB = világbajnoki, EB = Európa-bajnoki csúcs" Foreground="#52657A" FontSize="12" Margin="0, 8, 0, 0"/>
+                <ListBox x:Name="lstVersenyzok" Padding="6" BorderBrush="#D4DDE7" BorderThickness="1"/>
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Background="White" BorderBrush="#D4DDE7" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0, 16, 0, 0">
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBlock x:Name="txtLetszam" Text="Regisztrált versenyzők: 0" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="btnMentes" Click="Mentes_Click" Content="FÁJLBA MENTÉS" Height="32" Width="210" VerticalContentAlignment="Center"/>
+                    <Button x:Name="btnBetoltes" Click="Betoltes_Click" Content="FÁJLBÓL BETÖLTÉS" Height="32" Width="210" VerticalContentAlignment="Center" Margin="16, 0, 0, 0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
